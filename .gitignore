@@ -1,0 +1,4 @@
+# Ignore select files and folders.
+.env
+.venv
+.vscode
