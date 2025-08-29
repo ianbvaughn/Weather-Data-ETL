@@ -1,13 +1,14 @@
 import requests
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 import os
-import pandas as pd
-from sqlalchemy import create_engine, Table, MetaData, insert, inspect
+from sqlalchemy import create_engine, Table, MetaData, insert, text, Text, Column, Integer, DateTime
 
 def extract_weather():
-   load_dotenv()
+
+   # Load API key from environment variable
    api_key = os.getenv("OPEN_WEATHER_API")
+
+   # San Francisco coordinates
    lat = 37.7749
    lon = -122.4194
 
@@ -19,11 +20,34 @@ def extract_weather():
       
    except requests.exceptions.HTTPError as http_err:
       print(f"HTTP error occurred: {http_err}")
+      return
    except requests.exceptions.RequestException as err:
       print(f"Error occurred: {err}")
+      return
 
+   # Define PG connection
    etl_metadata = MetaData()
-   engine = create_engine("postgresql+psycopg2://airflow:airflow@postgres:5432/airflow_etl")
-   etl_table = Table("weather_raw",etl_metadata,autoload_with=engine,schema="public")
-   with engine.connect() as conn:
-     conn.execute(insert(etl_table).values({etl_table.c.load_ts:datetime.now(timezone.utc),etl_table.c.json_response:response.text}))
+   engine = create_engine("postgresql+psycopg2://airflow:airflow@postgres:5432/postgres")
+
+   # Define table
+   stg_table = Table(
+      "stg_weather_data",
+      etl_metadata,
+      Column("id", Integer, primary_key=True, autoincrement=True),
+      Column("load_ts", DateTime(timezone=True), nullable=False),
+      Column("json_response", Text, nullable=False),
+      schema="stage"
+   )
+
+   with engine.begin() as conn:
+     # Create stage schema and table if they don't exist
+     conn.execute(text("CREATE SCHEMA IF NOT EXISTS stage"))
+     etl_metadata.create_all(engine)
+
+     # Insert the JSON response into the table
+     conn.execute(
+        insert(stg_table).values(
+           {stg_table.c.load_ts:datetime.now(timezone.utc),
+            stg_table.c.json_response:response.text}
+         )
+      )

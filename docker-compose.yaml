@@ -80,6 +80,8 @@ x-airflow-common:
     &airflow-common-depends-on
     postgres:
       condition: service_healthy
+  env_file:
+    - .env # Points to user-defined .env file for additional environment variables, such as API keys.
 
 services:
   postgres:
