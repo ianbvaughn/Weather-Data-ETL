@@ -15,7 +15,12 @@ RUN apt-get update && \
 USER airflow
 
 # Install Great Expectations and optional extras for SQL and Pandas
-RUN pip install --no-cache-dir "great-expectations"
+RUN pip install --no-cache-dir "great-expectations" \
+    && pip install airflow-provider-great-expectations
+
+USER airflow
+RUN airflow db init
+RUN airflow db upgrade
 
 # Set work directory (optional)
 WORKDIR /opt/airflow
